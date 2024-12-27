@@ -67,11 +67,11 @@ evaluator_mrr = Evaluator(name=args.eval_mrr_data_name)
 
 loggers = {
     'Hits@1': Logger(args.runs),
-    'Hits@3': Logger(args.runs),
+    'Hits@5': Logger(args.runs),
     'Hits@10': Logger(args.runs),
+    'Hits@20': Logger(args.runs),
     'Hits@100': Logger(args.runs),
     'MRR': Logger(args.runs),
-
 }
 
 
@@ -102,24 +102,21 @@ for epoch in range(1, 1 + args.epochs):
         for key, result in results_rank.items():
             loggers[key].add_result(run, result)
 
-        if epoch % args.log_steps == 0:
-            for key, result in results_rank.items():
+        for key, result in results_rank.items():
+            print(key)
+            train_hits, valid_hits, test_hits = result
 
-                print(key)
+            log_print.info(
+                f'Run: {run + 1:02d}, '
+                  f'Epoch: {epoch:02d}, '
+                  f'Loss: {loss:.4f}, '
+                  f'Train: {100 * train_hits:.4f}%, '
+                  f'Valid: {100 * valid_hits:.4f}%, '
+                  f'Test: {100 * test_hits:.4f}%')
+        print('---')
 
-                train_hits, valid_hits, test_hits = result
+        best_valid_current = torch.tensor(loggers[eval_metric].results[run])[0,1]
 
-
-                log_print.info(
-                    f'Run: {run + 1:02d}, '
-                      f'Epoch: {epoch:02d}, '
-                      f'Loss: {loss:.4f}, '
-                      f'Train: {100 * train_hits:.2f}%, '
-                      f'Valid: {100 * valid_hits:.2f}%, '
-                      f'Test: {100 * test_hits:.2f}%')
-            print('---')
-
-        best_valid_current = torch.tensor(loggers[eval_metric].results[run])[:, 1].max()
 
         if best_valid_current > best_valid:
             best_valid = best_valid_current

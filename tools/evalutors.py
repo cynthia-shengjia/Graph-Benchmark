@@ -37,8 +37,8 @@ def evaluate_mrr(evaluator, pos_val_pred, neg_val_pred):
     valid_mrr =mrr_output['mrr_list'].mean().item()
     valid_mrr_hit1 = mrr_output['hits@1_list'].mean().item()
     valid_mrr_hit3 = mrr_output['hits@3_list'].mean().item()
+    valid_mrr_hit5 = mrr_output['hits@5_list'].mean().item()
     valid_mrr_hit10 = mrr_output['hits@10_list'].mean().item()
-
     valid_mrr_hit20 = mrr_output['hits@20_list'].mean().item()
     valid_mrr_hit50 = mrr_output['hits@50_list'].mean().item()
     valid_mrr_hit100 = mrr_output['hits@100_list'].mean().item()
@@ -48,8 +48,8 @@ def evaluate_mrr(evaluator, pos_val_pred, neg_val_pred):
     # test_mrr = round(test_mrr, 4)
     valid_mrr_hit1 = round(valid_mrr_hit1, 4)
     valid_mrr_hit3 = round(valid_mrr_hit3, 4)
+    valid_mrr_hit5 = round(valid_mrr_hit5, 4)
     valid_mrr_hit10 = round(valid_mrr_hit10, 4)
-
     valid_mrr_hit20 = round(valid_mrr_hit20, 4)
     valid_mrr_hit50 = round(valid_mrr_hit50, 4)
     valid_mrr_hit100 = round(valid_mrr_hit100, 4)
@@ -57,13 +57,14 @@ def evaluate_mrr(evaluator, pos_val_pred, neg_val_pred):
     results = {}
     results['mrr_hit1'] = valid_mrr_hit1
     results['mrr_hit3'] = valid_mrr_hit3
+    results['mrr_hit5'] = valid_mrr_hit5
     results['mrr_hit10'] = valid_mrr_hit10
-
-    results['MRR'] = valid_mrr
-
     results['mrr_hit20'] = valid_mrr_hit20
     results['mrr_hit50'] = valid_mrr_hit50
     results['mrr_hit100'] = valid_mrr_hit100
+
+
+    results['MRR'] = valid_mrr
 
 
     return results
@@ -113,7 +114,7 @@ def eval_mrr(y_pred_pos, y_pred_neg):
 
     hits1_list = (ranking_list <= 1).to(torch.float)
     hits3_list = (ranking_list <= 3).to(torch.float)
-
+    hits5_list = (ranking_list <= 5).to(torch.float)
     hits20_list = (ranking_list <= 20).to(torch.float)
     hits50_list = (ranking_list <= 50).to(torch.float)
     hits10_list = (ranking_list <= 10).to(torch.float)
@@ -122,6 +123,7 @@ def eval_mrr(y_pred_pos, y_pred_neg):
 
     return { 'hits@1_list': hits1_list,
                 'hits@3_list': hits3_list,
+                'hits@5_list': hits5_list,
                 'hits@20_list': hits20_list,
                 'hits@50_list': hits50_list,
                 'hits@10_list': hits10_list,

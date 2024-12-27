@@ -7,17 +7,14 @@ import tools.world as world
 def get_metric_score(evaluator_hit, evaluator_mrr, pos_train_pred, pos_val_pred, neg_val_pred, pos_test_pred,
                      neg_test_pred):
     result = {}
-    k_list = [1, 3, 10, 100]
 
     result_mrr_train = evaluate_mrr(evaluator_mrr, pos_train_pred, neg_val_pred)
     result_mrr_val = evaluate_mrr(evaluator_mrr, pos_val_pred, neg_val_pred)
     result_mrr_test = evaluate_mrr(evaluator_mrr, pos_test_pred, neg_test_pred)
 
-    # result_mrr = {}
     result['MRR'] = (result_mrr_train['MRR'], result_mrr_val['MRR'], result_mrr_test['MRR'])
-    for K in [1, 3, 10, 100]:
-        result[f'Hits@{K}'] = (
-        result_mrr_train[f'mrr_hit{K}'], result_mrr_val[f'mrr_hit{K}'], result_mrr_test[f'mrr_hit{K}'])
+    for K in [1, 5, 10, 20, 100]:
+        result[f'Hits@{K}'] = (result_mrr_train[f'mrr_hit{K}'], result_mrr_val[f'mrr_hit{K}'], result_mrr_test[f'mrr_hit{K}'])
 
     return result
 
