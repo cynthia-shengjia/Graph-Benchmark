@@ -78,6 +78,58 @@ def train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, 
 
 
 @torch.no_grad()
+def test_all_edge(score_func, input_data, h, batch_size, negative_data=None, interaction_tensor = None):
+    pos_preds = []
+    neg_preds = []
+
+    if negative_data is not None:
+        for perm in DataLoader(range(input_data.size(0)), batch_size):
+
+            pos_edges = input_data[perm].t()
+
+            src_index = pos_edges[0]
+            dst_index = pos_edges[1]
+
+            perm_size = perm.shape[0]
+
+            src_pos_emb = h[src_index]
+            dst_pos_emb = h[dst_index]
+
+            # h: (NodeNum, dim)
+            all_src_socres  = score_func(src_pos_emb.unsqueeze(1), h).squeeze()
+            all_dst_socres  = score_func(h, dst_pos_emb.unsqueeze(1)).squeeze()
+
+            pos_scores = all_src_socres[torch.arange(0,perm_size),dst_index]
+
+
+            src_train_pos = interaction_tensor[src_index, :]
+            dst_train_pos = interaction_tensor[dst_index, :]
+
+            all_src_socres_cpy = all_src_socres.clone()
+            all_dst_socres_cpy = all_dst_socres.clone()
+            all_src_socres_cpy[src_train_pos] = -1
+            all_dst_socres_cpy[dst_train_pos] = -1
+
+            neg_scores = torch.cat((all_src_socres_cpy, all_dst_socres_cpy), dim = -1)
+
+
+            pos_preds += [pos_scores.cpu()]
+            neg_preds += [neg_scores.cpu()]
+
+        neg_preds = torch.cat(neg_preds, dim=0)
+    else:
+        neg_preds = None
+        for perm in DataLoader(range(input_data.size(0)), batch_size):
+            edge = input_data[perm].t()
+            pos_preds += [score_func(h[edge[0]], h[edge[1]]).cpu()]
+
+    pos_preds = torch.cat(pos_preds, dim=0)
+
+    return pos_preds, neg_preds
+
+
+
+@torch.no_grad()
 def test_edge(score_func, input_data, h, batch_size, negative_data=None):
     pos_preds = []
     neg_preds = []
@@ -110,15 +162,16 @@ def test(model, score_func, data, x, evaluator_hit, evaluator_mrr, batch_size):
     model.eval()
     score_func.eval()
 
-    h = model(x, data['adj'].to(x.device))
+    h                   = model(x, data['adj'].to(x.device))
+    interaction_tensor  = data["interaction_tensor"]
     # print(h[0][:10])
     x = h
 
-    pos_train_pred, _ = test_edge(score_func, data['train_val'], h, batch_size)
-    pos_valid_pred, neg_valid_pred = test_edge(score_func, data['valid_pos'], h, batch_size,
-                                               negative_data=data['valid_neg'])
-    pos_test_pred, neg_test_pred = test_edge(score_func, data['test_pos'], h, batch_size,
-                                             negative_data=data['test_neg'])
+    pos_valid_pred, neg_valid_pred = test_all_edge(score_func, data['valid_pos'], h, batch_size,
+                                               negative_data=data['valid_neg'],interaction_tensor = interaction_tensor)
+    pos_test_pred, neg_test_pred = test_all_edge(score_func, data['test_pos'], h, batch_size,
+                                             negative_data=data['test_neg'],interaction_tensor = interaction_tensor)
+    pos_train_pred, _ = test_all_edge(score_func, data['train_val'], h, batch_size, negative_data=None, interaction_tensor = interaction_tensor)
 
     pos_train_pred = torch.flatten(pos_train_pred)
     pos_valid_pred = torch.flatten(pos_valid_pred)
