@@ -293,7 +293,7 @@ def read_data(data_name, dir_path, filename):
     adj = SparseTensor.from_edge_index(edge_index, edge_weight, [num_nodes, num_nodes])
 
     train_pos_tensor = torch.tensor(train_pos)
-
+    interaction_tensor = create_interaction_tensor(train_pos,num_nodes).cuda()
     valid_pos = torch.tensor(valid_pos)
 
     test_pos = torch.tensor(test_pos)
@@ -316,5 +316,14 @@ def read_data(data_name, dir_path, filename):
     data['test_neg'] = test_neg
 
     data['x'] = feature_embeddings
+    data["interaction_tensor"] = interaction_tensor
 
     return data
+
+
+def create_interaction_tensor(train_pos, node_num):
+    interaction_tensor = torch.eye(node_num, node_num, dtype=torch.bool)
+    for x in train_pos:
+        interaction_tensor[x[0], x[1]] = 1
+        interaction_tensor[x[1], x[0]] = 1
+    return interaction_tensor

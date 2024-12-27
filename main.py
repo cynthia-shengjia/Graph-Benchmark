@@ -48,8 +48,9 @@ data = read_data("cora", "normal_data", args.filename)
 node_num = data['x'].size(0)
 x = data['x']
 x = x.to(device)
-train_pos = data['train_pos'].to(x.device)
 
+train_pos           = data['train_pos'].to(x.device)
+interaction_tensor  = data['interaction_tensor']
 
 input_channel = x.size(1)
 model = MODELS[args.gnn_model](input_channel, args.hidden_channels,
@@ -92,7 +93,7 @@ score_func.reset_parameters()
 best_valid = 0
 kill_cnt = 0
 for epoch in range(1, 1 + args.epochs):
-    loss = train_batch(model, score_func, loss_func, train_pos, x, args.batch_size)
+    loss = train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, args.batch_size)
 
 
     if epoch % args.eval_steps == 0:

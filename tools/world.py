@@ -54,6 +54,7 @@ def parse_args():
 
     ####
     parser.add_argument('--eval_mrr_data_name', type=str, default='ogbl-citation2')
+    parser.add_argument("--neg_num", type=int, default = 1)
 
     return parser.parse_args()
 

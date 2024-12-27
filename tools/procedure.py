@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader
 import torch
 from torch_sparse import SparseTensor
 from tools.evalutors import evaluate_mrr
-
+import tools.world as world
 
 def get_metric_score(evaluator_hit, evaluator_mrr, pos_train_pred, pos_val_pred, neg_val_pred, pos_test_pred,
                      neg_test_pred):
@@ -23,7 +23,7 @@ def get_metric_score(evaluator_hit, evaluator_mrr, pos_train_pred, pos_val_pred,
 
 
 
-def train_batch(model, score_func, loss_func, train_pos, x, batch_size):
+def train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, batch_size):
     # 一个 batch 的 train
     model.train()
     score_func.train()
@@ -49,18 +49,27 @@ def train_batch(model, score_func, loss_func, train_pos, x, batch_size):
         adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(
             train_pos.device)
 
-
         # Just do some trivial random sampling.
-        pos_edge = train_pos[perm].t()
-        neg_edge = torch.randint(0, num_nodes, pos_edge.size(), dtype=torch.long,
-                             device="cuda")
+        batch_train_pos = train_pos[perm]
+        src             = batch_train_pos[:, 0]
+        dst             = batch_train_pos[:, 1]
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        torch.nn.utils.clip_grad_norm_(score_func.parameters(), 1.0)
+        src_neg = (~interaction_tensor[dst, :]).float()
+        dst_neg = (~interaction_tensor[src, :]).float()
+
+        src_neg_node = torch.multinomial(src_neg, num_samples = world.config['neg_num'], replacement=True)
+        dst_neg_node = torch.multinomial(dst_neg, num_samples = world.config['neg_num'], replacement=True)
+
+
+        pos_edge = batch_train_pos
+        neg_edge = [src_neg_node,dst_neg_node]
+
 
 
         loss = loss_func.step(x = x, pos_edge = pos_edge, neg_edge = neg_edge, adj = adj, perm = perm)
         aver_loss += loss
+
+
 
 
     return aver_loss / total_batch

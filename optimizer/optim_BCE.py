@@ -22,18 +22,27 @@ class BCEOptimizer(IROptimizer):
 
 
     def cal_loss(self, pos_logits, neg_logits):
+        pos_labels, neg_labels = torch.ones(pos_logits.shape, device="cuda"), torch.zeros(
+            neg_logits.shape, device="cuda"
+        )
 
-        pos_loss    = -torch.log(pos_logits + 1e-15).mean()
-        neg_loss    = -torch.log(neg_logits + 1e-15).mean()
-        loss        = pos_loss + neg_loss
-        return loss.mean()
+        logits = torch.cat((pos_logits, neg_logits), dim=-1)
+        labels = torch.cat((pos_labels, neg_labels), dim=-1)
+
+        bce_criterion = torch.nn.BCEWithLogitsLoss()
+        loss = bce_criterion(logits, labels)
+        return loss
 
 
     def step(self, x, pos_edge, neg_edge, adj, perm):
 
         h           = self.model(x, adj)
-        pos_logits  = self.score_model(h[pos_edge[0]], h[pos_edge[1]])
-        neg_logits  = self.score_model(h[neg_edge[0]], h[neg_edge[1]])
+
+        pos_src_emb, pos_dst_emb = h[pos_edge[:,0]], h[pos_edge[:,1]]
+        neg_src_emb, neg_dst_emb = h[neg_edge[0]],   h[neg_edge[1]]
+
+        pos_logits = (pos_src_emb * pos_dst_emb).sum(dim = -1)
+        neg_logits = (neg_src_emb * neg_dst_emb).sum(dim = -1).squeeze()
 
 
         bce_loss = self.cal_loss(pos_logits, neg_logits)
