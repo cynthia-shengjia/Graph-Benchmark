@@ -17,6 +17,17 @@ from tools.utils import read_data as read_data
 from ogb.linkproppred import Evaluator
 import tools.world as world
 
+import nni
+import os
+
+
+if not "NNI_PLATFORM" in os.environ:
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(world.config["device"])
+else:
+    optimized_params = nni.get_next_parameter()
+    world.config.update(optimized_params)
+
+
 
 log_print		= get_logger('testrun', 'log', get_config_dir())
 
@@ -37,13 +48,16 @@ SCORE_MODELS = {
 
 
 
+
+
+
 args = world.parse_args()
-print(args)
-init_seed(args.seed)
-device = f'cuda:{args.device}' if torch.cuda.is_available() else 'cpu'
+init_seed(world.config['seed'])
+
+device = f'cuda:{world.config["device"]}' if torch.cuda.is_available() else 'cpu'
 device = torch.device(device)
 
-data = read_data("cora", "normal_data", args.filename)
+data = read_data("cora", "normal_data", world.config["filename"])
 
 node_num = data['x'].size(0)
 x = data['x']
@@ -53,15 +67,26 @@ train_pos           = data['train_pos'].to(x.device)
 interaction_tensor  = data['interaction_tensor']
 
 input_channel = x.size(1)
-model = MODELS[args.gnn_model](input_channel, args.hidden_channels,
-                args.hidden_channels, args.num_layers, args.dropout, args.gin_mlp_layer, args.gat_head, node_num).to(device)
-score_func = SCORE_MODELS[args.score_model](args.hidden_channels, args.hidden_channels,
-                1, args.num_layers_predictor, args.dropout).to(device)
+model = MODELS[world.config["gnn_model"]](input_channel,
+                world.config["hidden_channels"],
+                world.config["hidden_channels"],
+                world.config["num_layers"],
+                world.config["dropout"],
+                world.config["gin_mlp_layer"],
+                world.config["gat_head"],
+                node_num).to(device)
+
+score_func = SCORE_MODELS[world.config["score_model"]](
+    world.config["hidden_channels"],
+    world.config["hidden_channels"],
+                1,
+    world.config["num_layers_predictor"],
+    world.config["dropout"]).to(device)
 
 loss_func = LOSSES[world.config["loss"]](model=model, score_model = score_func, config=world.config)
 
 
-eval_metric = args.metric
+eval_metric = world.config["metric"]
 evaluator_hit = Evaluator(name='ogbl-collab')
 evaluator_mrr = Evaluator(name=args.eval_mrr_data_name)
 
@@ -76,7 +101,7 @@ loggers = {
 
 
 run = 0
-seed = args.seed
+seed = world.config["seed"]
 print('seed: ', seed)
 
 init_seed(seed)
@@ -92,12 +117,12 @@ score_func.reset_parameters()
 
 best_valid = 0
 kill_cnt = 0
-for epoch in range(1, 1 + args.epochs):
-    loss = train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, args.batch_size)
+for epoch in range(1, 1 + world.config["epochs"]):
+    loss = train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, world.config["batch_size"])
 
 
-    if epoch % args.eval_steps == 0:
-        results_rank, score_emb = test(model, score_func, data, x, evaluator_hit, evaluator_mrr, args.batch_size)
+    if epoch % world.config["eval_steps"] == 0:
+        results_rank, score_emb = test(model, score_func, data, x, evaluator_hit, evaluator_mrr, world.config["batch_size"])
 
         for key, result in results_rank.items():
             loggers[key].add_result(run, result)
@@ -115,18 +140,25 @@ for epoch in range(1, 1 + args.epochs):
                   f'Test: {100 * test_hits:.4f}%')
         print('---')
 
-        best_valid_current = torch.tensor(loggers[eval_metric].results[run])[0,1]
+        best_valid_current = torch.tensor(loggers[eval_metric].results[run])[0,1].cpu()
 
+
+        if "NNI_PLATFORM" in os.environ:
+            metric = {
+                "MRR": best_valid_current.cpu(),
+                "default": loggers["Hits@20"].results[run][0][1],
+            }
+            nni.report_intermediate_result(metric)
 
         if best_valid_current > best_valid:
             best_valid = best_valid_current
             kill_cnt = 0
 
-            if args.save:
+            if world.config["save"]:
                 save_emb(score_emb, save_path)
         else:
             kill_cnt += 1
-            if kill_cnt > args.kill_cnt:
+            if kill_cnt > world.config["kill_cnt"]:
                 print("Early Stopping!!")
                 break
 
@@ -145,15 +177,14 @@ for key in loggers.keys():
     if key == 'AUC':
         best_auc_valid_str = best_metric
         best_auc_metric = best_valid_mean
-    result_all_run[key] = [mean_list, var_list]
+    result_all_run[key] = [mean_list]
 
 
+if "NNI_PLATFORM" in os.environ:
+    metric = {"default": result_all_run["Hits@20"][0][1], "MRR": result_all_run["MRR"][0][1] }
+    nni.report_final_result(metric)
 
-best_auc_metric = best_valid_mean_metric
-print(best_valid_mean_metric, best_auc_metric, result_all_run)
-
-
-
+print(result_all_run)
 
 
 
