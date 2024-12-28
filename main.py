@@ -8,6 +8,7 @@ import optimizer
 from tools.utils import *
 # from logger import Logger
 
+from pprint import pprint
 
 from tools.procedure import train_batch as train_batch
 
@@ -28,6 +29,8 @@ else:
     world.config.update(optimized_params)
 
 
+
+pprint(world.config)
 
 log_print		= get_logger('testrun', 'log', get_config_dir())
 

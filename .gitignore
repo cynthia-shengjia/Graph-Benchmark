@@ -4,3 +4,4 @@ model/__pycache__
 optimizer/__pycache__
 tools/__pycache__
 normal_data/
+config/
