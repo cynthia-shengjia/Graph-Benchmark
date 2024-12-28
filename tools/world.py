@@ -55,7 +55,13 @@ def parse_args():
 
     ####
     parser.add_argument('--eval_mrr_data_name', type=str, default='ogbl-citation2')
-    parser.add_argument("--neg_num", type=int, default = 1)
+    parser.add_argument("--neg_num", type=int, default = 1024)
+
+
+    ####
+    parser.add_argument("--ssm_temp", type=float, default = 0.05)
+    parser.add_argument("--norm_emb", type=int, default=1, help="whether normalize embeddings")
+
 
     return parser.parse_args()
 
