@@ -23,7 +23,7 @@ import os
 
 
 if not "NNI_PLATFORM" in os.environ:
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(world.config["device"])
+    os.environ["CUDA_VISIBLE_DEVICES"] = world.config["cuda"]
 else:
     optimized_params = nni.get_next_parameter()
     world.config.update(optimized_params)
@@ -117,7 +117,7 @@ model.reset_parameters()
 score_func.reset_parameters()
 
 
-
+best_report_model = None
 best_valid = 0
 kill_cnt = 0
 for epoch in range(1, 1 + world.config["epochs"]):
@@ -142,25 +142,28 @@ for epoch in range(1, 1 + world.config["epochs"]):
                   f'Valid: {100 * valid_hits:.4f}%, '
                   f'Test: {100 * test_hits:.4f}%')
         print('---')
-
-        best_valid_current = torch.tensor(loggers[eval_metric].results[run])[0,1].cpu()
+        
+        valid_current = results_rank
 
 
         if "NNI_PLATFORM" in os.environ:
             metric = {
-                "MRR": best_valid_current.cpu(),
-                "default": loggers["Hits@20"].results[run][0][1],
+                "MRR": valid_current['MRR'][1] * 100,
+                "default": valid_current['Hits@20'][1] * 100,
             }
             nni.report_intermediate_result(metric)
 
-        if best_valid_current > best_valid:
-            best_valid = best_valid_current
+
+        if valid_current['Hits@20'][1] > best_valid:
+            best_report_model = valid_current
+            best_valid = valid_current['Hits@20'][1]
             kill_cnt = 0
 
             if world.config["save"]:
                 save_emb(score_emb, save_path)
         else:
             kill_cnt += 1
+            print("Patience: {}/5".format(kill_cnt))
             if kill_cnt > world.config["kill_cnt"]:
                 print("Early Stopping!!")
                 break
@@ -170,24 +173,24 @@ for key in loggers.keys():
     loggers[key].print_statistics(run)
 
 
-result_all_run = {}
-for key in loggers.keys():
-    print(key)
-    best_metric,  best_valid_mean, mean_list, var_list = loggers[key].print_statistics()
-    if key == eval_metric:
-        best_metric_valid_str = best_metric
-        best_valid_mean_metric = best_valid_mean
-    if key == 'AUC':
-        best_auc_valid_str = best_metric
-        best_auc_metric = best_valid_mean
-    result_all_run[key] = [mean_list]
+# result_all_run = {}
+# for key in loggers.keys():
+#     print(key)
+#     best_metric,  best_valid_mean, mean_list, var_list = loggers[key].print_statistics()
+#     if key == eval_metric:
+#         best_metric_valid_str = best_metric
+#         best_valid_mean_metric = best_valid_mean
+#     if key == 'AUC':
+#         best_auc_valid_str = best_metric
+#         best_auc_metric = best_valid_mean
+#     result_all_run[key] = [mean_list]
 
 
 if "NNI_PLATFORM" in os.environ:
-    metric = {"default": result_all_run["Hits@20"][0][1], "MRR": result_all_run["MRR"][0][1] }
+    metric = {"default": best_report_model["Hits@20"][1] * 100, "MRR": best_report_model["MRR"][1] * 100 }
     nni.report_final_result(metric)
 
-print(result_all_run)
+
 
 
 

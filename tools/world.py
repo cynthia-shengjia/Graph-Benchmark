@@ -22,10 +22,10 @@ def parse_args():
     ### train setting
     parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--epochs', type=int, default=9999)
+    parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--eval_steps', type=int, default=5)
     parser.add_argument('--runs', type=int, default=1)
-    parser.add_argument('--kill_cnt', dest='kill_cnt', default=10, type=int, help='early stopping')
+    parser.add_argument('--kill_cnt', dest='kill_cnt', default=5, type=int, help='early stopping')
     parser.add_argument('--output_dir', type=str, default='output_test')
     parser.add_argument('--input_dir', type=str, default=os.path.join(get_root_dir(), "dataset"))
     parser.add_argument('--filename', type=str, default='samples.npy')
@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument('--use_saved_model', action='store_true', default=False)
     parser.add_argument('--metric', type=str, default='MRR')
     parser.add_argument('--device', type=int, default=0)
+    parser.add_argument("--cuda", type=str, default = "0")
     parser.add_argument('--log_steps', type=int, default=1)
 
     ####### gin
