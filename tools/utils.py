@@ -166,7 +166,7 @@ def get_logger(name, log_dir, config_dir):
     return logger
 
 
-def read_data(data_name, dir_path, filename):
+def read_data(data_name, dir_path, filename, config):
     data_name = data_name
 
     node_set = set()
@@ -211,7 +211,14 @@ def read_data(data_name, dir_path, filename):
     adj = SparseTensor.from_edge_index(edge_index, edge_weight, [num_nodes, num_nodes])
 
     train_pos_tensor = torch.tensor(train_pos)
-    interaction_tensor = create_interaction_tensor(train_pos,num_nodes).cuda()
+    if config['loss'] == 'PreAtK':
+        interaction_tensor, user_all_pos = create_interaction_tensor(train_pos,num_nodes)
+        interaction_tensor = interaction_tensor.cuda()
+        user_all_pos       = user_all_pos.cuda()
+    else:
+        interaction_tensor, _ = create_interaction_tensor(train_pos,num_nodes)
+        interaction_tensor = interaction_tensor.cuda()
+
     valid_pos = torch.tensor(valid_pos)
 
     test_pos = torch.tensor(test_pos)
@@ -235,6 +242,9 @@ def read_data(data_name, dir_path, filename):
 
     data['x'] = feature_embeddings
     data["interaction_tensor"] = interaction_tensor
+    
+    if config["loss"] == "PreAtK":
+        data["user_all_pos"]       = user_all_pos
 
     return data
 
@@ -244,4 +254,19 @@ def create_interaction_tensor(train_pos, node_num):
     for x in train_pos:
         interaction_tensor[x[0], x[1]] = 1
         interaction_tensor[x[1], x[0]] = 1
-    return interaction_tensor
+    user_pos_items = create_all_pos_tensor(interaction_tensor, node_num)
+    return interaction_tensor, user_pos_items
+
+def create_all_pos_tensor(interaction_tensor, node_num):
+    padding_number = node_num
+    user_pos_items  = torch.empty((node_num, node_num), dtype = torch.int64)
+
+
+    for index in range(node_num):
+        x = interaction_tensor[index]
+        pos_list       =  torch.nonzero(x, as_tuple=True)[0].tolist()
+        generate_list  =  pos_list + [node_num] * (node_num - len(pos_list))
+        user_pos_items[index] = torch.tensor(generate_list)
+    
+
+    return user_pos_items

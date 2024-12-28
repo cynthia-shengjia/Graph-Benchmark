@@ -131,6 +131,83 @@ def train_batch_multi_neg(model, loss_func, train_pos, x, interaction_tensor, ba
 
 
 
+
+def train_batch_topk(model, loss_func, train_pos, x, interaction_tensor, user_all_pos, batch_size):
+    # 一个 batch 的 train
+    model.train()
+    total_batch = train_pos.size(0) // batch_size + 1
+    aver_loss = 0.0
+
+
+    for perm in DataLoader(range(train_pos.size(0)), batch_size, shuffle=True):
+
+        num_nodes = x.size(0)
+
+        ######################### remove loss edges from the aggregation
+        mask = torch.ones(train_pos.size(0), dtype=torch.bool).to(train_pos.device)
+        mask[perm] = 0
+
+        train_edge_mask = train_pos[mask].transpose(1, 0)
+
+        # train_edge_mask = to_undirected(train_edge_mask)
+        train_edge_mask = torch.cat((train_edge_mask, train_edge_mask[[1, 0]]), dim=1)
+        # edge_weight_mask = torch.cat((edge_weight_mask, edge_weight_mask), dim=0).to(torch.float)
+        edge_weight_mask = torch.ones(train_edge_mask.size(1)).to(torch.float).to(train_pos.device)
+
+        adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(
+            train_pos.device)
+
+        # Just do some trivial random sampling.
+        batch_train_pos = train_pos[perm]
+        src             = batch_train_pos[:, 0]
+        dst             = batch_train_pos[:, 1]
+
+
+        src_neg = (~interaction_tensor[dst, :]).float()
+        dst_neg = (~interaction_tensor[src, :]).float()
+
+        src_neg_node = torch.multinomial(src_neg, num_samples = int(world.config['neg_num'] / 2), replacement=True)     # (1024,512)
+        dst_neg_node = torch.multinomial(dst_neg, num_samples = int(world.config['neg_num'] / 2), replacement=True)     # (1024,512)
+
+
+        src_expand = src.unsqueeze(1).repeat(1, int(world.config['neg_num'] / 2))                                       # (1024,512)
+        dst_expand = dst.unsqueeze(1).repeat(1, int(world.config['neg_num'] / 2))                                       # (1024,512)
+
+
+        neg_node_src = torch.cat((src_expand,src_neg_node), dim = -1)
+        neg_node_dst = torch.cat((dst_neg_node, dst_expand), dim = -1)
+
+
+        pos_edge = batch_train_pos
+        neg_edge = [neg_node_src,neg_node_dst]
+
+
+
+        # all_pos construct
+        src_all_pos = user_all_pos[src, :]
+        dst_all_pos = user_all_pos[dst, :]
+
+        
+        src_all_pos_expand = src.unsqueeze(1).repeat(1, num_nodes) 
+        dst_all_pos_expand = dst.unsqueeze(1).repeat(1, num_nodes)
+
+        all_pos_part_one = [src_all_pos_expand, src_all_pos]
+        all_pos_part_two = [dst_all_pos, dst_all_pos_expand]
+
+        all_pos = [all_pos_part_one, all_pos_part_two]
+
+
+
+
+        loss = loss_func.step(x = x, pos_edge = pos_edge, neg_edge = neg_edge, all_pos = all_pos, adj = adj, perm = perm)
+        aver_loss += loss
+
+
+
+
+    return aver_loss / total_batch
+
+
 @torch.no_grad()
 def test_all_edge(input_data, h, batch_size, negative_data=None, interaction_tensor = None):
     pos_preds = []

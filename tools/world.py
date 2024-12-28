@@ -61,6 +61,8 @@ def parse_args():
     ####
     parser.add_argument("--ssm_temp", type=float, default = 0.05)
     parser.add_argument("--norm_emb", type=int, default=1, help="whether normalize embeddings")
+    parser.add_argument("--lr2", type=float, default = 0.001)
+    parser.add_argument("--lambda_k", type=int, default = 20)
 
 
     return parser.parse_args()
