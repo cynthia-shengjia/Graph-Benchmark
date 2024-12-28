@@ -24,7 +24,8 @@ class SLOptimizer(IROptimizer):
 
     def cal_loss(self, pos_logits, neg_logits):
 
-        d = pos_logits.unsqueeze(1) - neg_logits
+        d = neg_logits - pos_logits.unsqueeze(1)
+
 
         loss = torch.logsumexp(d / self.temp, dim = -1)
         return loss.mean()
