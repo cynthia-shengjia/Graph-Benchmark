@@ -5,34 +5,23 @@ from torch_geometric.nn import GCNConv
 
 class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout, mlp_layer=None, head=None, node_num=None, cat_node_feat_mf=False, data_name=None):
+                 dropout, config):
         super(GCN, self).__init__()
 
         self.convs = torch.nn.ModuleList()
+        self.norm  = config['norm_emb']
 
-        if data_name == 'ogbl-citation2':
-            if num_layers == 1:
-                self.convs.append(GCNConv(in_channels, out_channels, normalize=False))
 
-            elif num_layers > 1:
-                self.convs.append(GCNConv(in_channels, hidden_channels, normalize=False))
+        if num_layers == 1:
+            self.convs.append(GCNConv(in_channels, out_channels))
 
-                for _ in range(num_layers - 2):
-                    self.convs.append(
-                        GCNConv(hidden_channels, hidden_channels, normalize=False))
-                self.convs.append(GCNConv(hidden_channels, out_channels, normalize=False))
+        elif num_layers > 1:
+            self.convs.append(GCNConv(in_channels, hidden_channels))
 
-        else:
-            if num_layers == 1:
-                self.convs.append(GCNConv(in_channels, out_channels))
-
-            elif num_layers > 1:
-                self.convs.append(GCNConv(in_channels, hidden_channels))
-
-                for _ in range(num_layers - 2):
-                    self.convs.append(
-                        GCNConv(hidden_channels, hidden_channels))
-                self.convs.append(GCNConv(hidden_channels, out_channels))
+            for _ in range(num_layers - 2):
+                self.convs.append(
+                    GCNConv(hidden_channels, hidden_channels))
+            self.convs.append(GCNConv(hidden_channels, out_channels))
 
         self.dropout = dropout
         # self.p = args
@@ -54,4 +43,6 @@ class GCN(torch.nn.Module):
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, adj_t)
+        if self.norm:
+            x = F.normalize(input = x,  p = 2,  dim = -1)
         return x

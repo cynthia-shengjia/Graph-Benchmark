@@ -7,12 +7,13 @@ from torch_geometric.nn import GATConv
 
 class GAT(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout, mlp_layer=None, head=None, node_num=None, cat_node_feat_mf=False, data_name=None):
+                 dropout, config):
         super(GAT, self).__init__()
 
         self.convs = torch.nn.ModuleList()
         self.hidden_channels = hidden_channels
         self.out_channels = out_channels
+        self.norm  = config['norm_emb']
 
         if num_layers == 1:
             out_channels = int(self.out_channels / head)

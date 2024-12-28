@@ -7,11 +7,11 @@ from torch_geometric.nn import SAGEConv
 
 class SAGE(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout,  mlp_layer=None,  head=None, node_num=None,  cat_node_feat_mf=False,  data_name=None):
+                 dropout, config):
         super(SAGE, self).__init__()
 
         self.convs = torch.nn.ModuleList()
-
+        self.norm  = config['norm_emb']
         if num_layers == 1:
             self.convs.append(SAGEConv(in_channels, out_channels))
 
@@ -38,4 +38,6 @@ class SAGE(torch.nn.Module):
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, adj_t)
+        if self.norm:
+            x = F.normalize(input = x,  p = 2,  dim = -1)
         return x

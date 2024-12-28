@@ -73,9 +73,7 @@ model = MODELS[world.config["gnn_model"]](input_channel,
                 world.config["hidden_channels"],
                 world.config["num_layers"],
                 world.config["dropout"],
-                world.config["gin_mlp_layer"],
-                world.config["gat_head"],
-                node_num).to(device)
+                world.config).to(device)
 
 
 
