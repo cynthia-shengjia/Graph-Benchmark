@@ -29,7 +29,7 @@ class BCEOptimizer(IROptimizer):
         logits = torch.cat((pos_logits, neg_logits), dim=-1)
         labels = torch.cat((pos_labels, neg_labels), dim=-1)
 
-        bce_criterion = torch.nn.BCELoss()
+        bce_criterion = torch.nn.BCEWithLogitsLoss()
         loss = bce_criterion(logits, labels)
         return loss
 
@@ -40,9 +40,13 @@ class BCEOptimizer(IROptimizer):
 
         pos_src_emb, pos_dst_emb = h[pos_edge[:,0]], h[pos_edge[:,1]]
         neg_src_emb, neg_dst_emb = h[neg_edge[0]],   h[neg_edge[1]]
+        
+        pos_logits = (pos_src_emb * pos_dst_emb).sum(dim = -1)
+        neg_logits = (neg_src_emb * neg_dst_emb).sum(dim = -1).squeeze()
+        
 
-        pos_logits = self.score_model(pos_src_emb,pos_dst_emb).squeeze()
-        neg_logits = self.score_model(neg_src_emb, neg_dst_emb).squeeze()
+        # pos_logits = self.score_model(pos_src_emb,pos_dst_emb).squeeze()
+        # neg_logits = self.score_model(neg_src_emb, neg_dst_emb).squeeze()
 
 
         bce_loss = self.cal_loss(pos_logits, neg_logits)

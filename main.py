@@ -120,11 +120,9 @@ score_func.reset_parameters()
 best_report_model = None
 best_valid = 0
 kill_cnt = 0
-for epoch in range(1, 1 + world.config["epochs"]):
-    loss = train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, world.config["batch_size"])
+for epoch in range(world.config["epochs"]):
 
-
-    if epoch % world.config["eval_steps"] == 0:
+    if epoch % world.config["eval_steps"] == 0 and epoch != 0:
         results_rank, score_emb = test(model, score_func, data, x, evaluator_hit, evaluator_mrr, world.config["batch_size"])
 
         for key, result in results_rank.items():
@@ -135,7 +133,6 @@ for epoch in range(1, 1 + world.config["epochs"]):
             train_hits, valid_hits, test_hits = result
 
             log_print.info(
-                f'Run: {run + 1:02d}, '
                   f'Epoch: {epoch:02d}, '
                   f'Loss: {loss:.4f}, '
                   f'Train: {100 * train_hits:.4f}%, '
@@ -164,26 +161,14 @@ for epoch in range(1, 1 + world.config["epochs"]):
         else:
             kill_cnt += 1
             print("Patience: {}/5".format(kill_cnt))
-            if kill_cnt > world.config["kill_cnt"]:
+            if kill_cnt >= world.config["kill_cnt"]:
+                print(best_report_model)
                 print("Early Stopping!!")
                 break
-
-for key in loggers.keys():
-    print(key)
-    loggers[key].print_statistics(run)
+    
+    loss = train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, world.config["batch_size"])
 
 
-# result_all_run = {}
-# for key in loggers.keys():
-#     print(key)
-#     best_metric,  best_valid_mean, mean_list, var_list = loggers[key].print_statistics()
-#     if key == eval_metric:
-#         best_metric_valid_str = best_metric
-#         best_valid_mean_metric = best_valid_mean
-#     if key == 'AUC':
-#         best_auc_valid_str = best_metric
-#         best_auc_metric = best_valid_mean
-#     result_all_run[key] = [mean_list]
 
 
 if "NNI_PLATFORM" in os.environ:

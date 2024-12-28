@@ -93,8 +93,11 @@ def test_all_edge(score_func, input_data, h, batch_size, negative_data=None, int
             dst_pos_emb = h[dst_index]
 
             # h: (NodeNum, dim)
-            all_src_socres  = score_func(src_pos_emb.unsqueeze(1), h).squeeze()
-            all_dst_socres  = score_func(h, dst_pos_emb.unsqueeze(1)).squeeze()
+            # all_src_socres  = score_func(src_pos_emb.unsqueeze(1), h).squeeze()
+            # all_dst_socres  = score_func(h, dst_pos_emb.unsqueeze(1)).squeeze()
+            all_src_socres = torch.sigmoid((src_pos_emb.unsqueeze(1) * h).sum(-1))
+            all_dst_socres = torch.sigmoid((dst_pos_emb.unsqueeze(1) * h).sum(-1))
+
 
             pos_scores = all_src_socres[torch.arange(0,perm_size),dst_index]
 
@@ -118,7 +121,9 @@ def test_all_edge(score_func, input_data, h, batch_size, negative_data=None, int
         neg_preds = None
         for perm in DataLoader(range(input_data.size(0)), batch_size):
             edge = input_data[perm].t()
-            pos_preds += [score_func(h[edge[0]], h[edge[1]]).cpu()]
+            scores = torch.sigmoid((h[edge[0]] * h[edge[1]]).sum(-1)).unsqueeze(1)
+            pos_preds += [scores.cpu()]
+
 
     pos_preds = torch.cat(pos_preds, dim=0)
 

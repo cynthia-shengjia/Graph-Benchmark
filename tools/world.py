@@ -22,7 +22,7 @@ def parse_args():
     ### train setting
     parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--epochs', type=int, default=30)
+    parser.add_argument('--epochs', type=int, default=9999)
     parser.add_argument('--eval_steps', type=int, default=5)
     parser.add_argument('--runs', type=int, default=1)
     parser.add_argument('--kill_cnt', dest='kill_cnt', default=5, type=int, help='early stopping')
