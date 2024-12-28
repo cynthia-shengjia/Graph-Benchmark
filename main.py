@@ -45,9 +45,7 @@ MODELS = {
     "GAT":  model.model_GAT.GAT
 }
 
-SCORE_MODELS = {
-    "mlp_score":    model.model_Score.mlp_score
-}
+
 
 
 
@@ -79,14 +77,9 @@ model = MODELS[world.config["gnn_model"]](input_channel,
                 world.config["gat_head"],
                 node_num).to(device)
 
-score_func = SCORE_MODELS[world.config["score_model"]](
-    world.config["hidden_channels"],
-    world.config["hidden_channels"],
-                1,
-    world.config["num_layers_predictor"],
-    world.config["dropout"]).to(device)
 
-loss_func = LOSSES[world.config["loss"]](model=model, score_model = score_func, config=world.config)
+
+loss_func = LOSSES[world.config["loss"]](model=model, config=world.config)
 
 
 eval_metric = world.config["metric"]
@@ -114,7 +107,7 @@ save_path = args.output_dir+'/lr'+str(args.lr) + '_drop' + str(args.dropout) + '
 
 
 model.reset_parameters()
-score_func.reset_parameters()
+
 
 
 best_report_model = None
@@ -123,7 +116,7 @@ kill_cnt = 0
 for epoch in range(world.config["epochs"]):
 
     if epoch % world.config["eval_steps"] == 0 and epoch != 0:
-        results_rank, score_emb = test(model, score_func, data, x, evaluator_hit, evaluator_mrr, world.config["batch_size"])
+        results_rank, score_emb = test(model, data, x, evaluator_hit, evaluator_mrr, world.config["batch_size"])
 
         for key, result in results_rank.items():
             loggers[key].add_result(run, result)
@@ -166,7 +159,7 @@ for epoch in range(world.config["epochs"]):
                 print("Early Stopping!!")
                 break
     
-    loss = train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, world.config["batch_size"])
+    loss = train_batch(model, loss_func, train_pos, x, interaction_tensor, world.config["batch_size"])
 
 
 

@@ -3,12 +3,12 @@ import torch
 
 
 class BCEOptimizer(IROptimizer):
-    def __init__(self, model, score_model, config):
+    def __init__(self, model, config):
         super().__init__()
 
         # === Model ===
         self.model = model
-        self.score_model = score_model
+
 
         # === Hyper-parameter ===
         self.lr = config['lr']
@@ -16,8 +16,7 @@ class BCEOptimizer(IROptimizer):
 
         # === Model Optimizer ===
         self.optimizer_descent = torch.optim.Adam([
-            {'params': self.model.parameters(),         'lr': self.lr},
-            {'params': self.score_model.parameters(),   'lr': self.lr},
+            {'params': self.model.parameters(),         'lr': self.lr}
         ], weight_decay=self.weight_decay)
 
 
@@ -60,8 +59,5 @@ class BCEOptimizer(IROptimizer):
 
     def save(self, path):
         all_states = self.model.state_dict()
-        all_states.update({
-            "score_model": self.score_model.state_dict()
-        })
         torch.save(obj=all_states, f=path)
 

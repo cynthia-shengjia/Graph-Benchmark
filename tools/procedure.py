@@ -20,10 +20,9 @@ def get_metric_score(evaluator_hit, evaluator_mrr, pos_train_pred, pos_val_pred,
 
 
 
-def train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, batch_size):
+def train_batch(model, loss_func, train_pos, x, interaction_tensor, batch_size):
     # 一个 batch 的 train
     model.train()
-    score_func.train()
     total_batch = train_pos.size(0) // batch_size + 1
     aver_loss = 0.0
 
@@ -74,8 +73,66 @@ def train_batch(model, score_func, loss_func, train_pos, x, interaction_tensor, 
 
 
 
+def train_batch_multi_neg(model, loss_func, train_pos, x, interaction_tensor, batch_size):
+    # 一个 batch 的 train
+    model.train()
+    total_batch = train_pos.size(0) // batch_size + 1
+    aver_loss = 0.0
+
+
+    for perm in DataLoader(range(train_pos.size(0)), batch_size, shuffle=True):
+
+        num_nodes = x.size(0)
+
+        ######################### remove loss edges from the aggregation
+        mask = torch.ones(train_pos.size(0), dtype=torch.bool).to(train_pos.device)
+        mask[perm] = 0
+
+        train_edge_mask = train_pos[mask].transpose(1, 0)
+
+        # train_edge_mask = to_undirected(train_edge_mask)
+        train_edge_mask = torch.cat((train_edge_mask, train_edge_mask[[1, 0]]), dim=1)
+        # edge_weight_mask = torch.cat((edge_weight_mask, edge_weight_mask), dim=0).to(torch.float)
+        edge_weight_mask = torch.ones(train_edge_mask.size(1)).to(torch.float).to(train_pos.device)
+
+        adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(
+            train_pos.device)
+
+        # Just do some trivial random sampling.
+        batch_train_pos = train_pos[perm]
+        src             = batch_train_pos[:, 0]
+        dst             = batch_train_pos[:, 1]
+
+        src_neg = (~interaction_tensor[dst, :]).float()
+        dst_neg = (~interaction_tensor[src, :]).float()
+
+        src_neg_node = torch.multinomial(src_neg, num_samples = int(world.config['neg_num'] / 2), replacement=True)     # (1024,512)
+        dst_neg_node = torch.multinomial(dst_neg, num_samples = int(world.config['neg_num'] / 2), replacement=True)     # (1024,512)
+
+
+        src_expand = src.unsqueeze(1).repeat(1, int(world.config['neg_num'] / 2))                                       # (1024,512)
+        dst_expand = dst.unsqueeze(1).repeat(1, int(world.config['neg_num'] / 2))                                       # (1024,512)
+
+        neg_node_src = torch.cat((src_neg_node, src_expand), dim = -1)
+        neg_node_dst = torch.cat((dst_expand, dst_neg_node), dim = -1)
+
+        pos_edge = batch_train_pos
+        neg_edge = [neg_node_src,neg_node_dst]
+
+
+
+        loss = loss_func.step(x = x, pos_edge = pos_edge, neg_edge = neg_edge, adj = adj, perm = perm)
+        aver_loss += loss
+
+
+
+
+    return aver_loss / total_batch
+
+
+
 @torch.no_grad()
-def test_all_edge(score_func, input_data, h, batch_size, negative_data=None, interaction_tensor = None):
+def test_all_edge(input_data, h, batch_size, negative_data=None, interaction_tensor = None):
     pos_preds = []
     neg_preds = []
 
@@ -160,20 +217,19 @@ def test_edge(score_func, input_data, h, batch_size, negative_data=None):
 
 
 @torch.no_grad()
-def test(model, score_func, data, x, evaluator_hit, evaluator_mrr, batch_size):
+def test(model, data, x, evaluator_hit, evaluator_mrr, batch_size):
     model.eval()
-    score_func.eval()
 
     h                   = model(x, data['adj'].to(x.device))
     interaction_tensor  = data["interaction_tensor"]
     # print(h[0][:10])
     x = h
 
-    pos_valid_pred, neg_valid_pred = test_all_edge(score_func, data['valid_pos'], h, batch_size,
+    pos_valid_pred, neg_valid_pred = test_all_edge(data['valid_pos'], h, batch_size,
                                                negative_data=data['valid_neg'],interaction_tensor = interaction_tensor)
-    pos_test_pred, neg_test_pred = test_all_edge(score_func, data['test_pos'], h, batch_size,
+    pos_test_pred, neg_test_pred = test_all_edge(data['test_pos'], h, batch_size,
                                              negative_data=data['test_neg'],interaction_tensor = interaction_tensor)
-    pos_train_pred, _ = test_all_edge(score_func, data['train_val'], h, batch_size, negative_data=None, interaction_tensor = interaction_tensor)
+    pos_train_pred, _ = test_all_edge(data['train_val'], h, batch_size, negative_data=None, interaction_tensor = interaction_tensor)
 
     pos_train_pred = torch.flatten(pos_train_pred)
     pos_valid_pred = torch.flatten(pos_valid_pred)
