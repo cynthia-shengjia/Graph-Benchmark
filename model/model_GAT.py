@@ -51,5 +51,6 @@ class GAT(torch.nn.Module):
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, adj_t)
-
+        if self.norm:
+            x = F.normalize(input = x,  p = 2,  dim = -1)
         return x
