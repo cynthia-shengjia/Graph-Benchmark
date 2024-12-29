@@ -54,7 +54,7 @@ init_seed(world.config['seed'])
 device = f'cuda:{world.config["device"]}' if torch.cuda.is_available() else 'cpu'
 device = torch.device(device)
 
-data = read_data("cora", "normal_data", world.config["filename"])
+data = read_data("cora", "normal_data", world.config["filename"], world.config)
 
 node_num = data['x'].size(0)
 x = data['x']
