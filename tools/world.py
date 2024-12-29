@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument('--score_model', type=str, default='mlp_score')
 
     ##gnn setting
-    parser.add_argument('--num_layers', type=int, default=1)
+    parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--num_layers_predictor', type=int, default=2)
     parser.add_argument('--hidden_channels', type=int, default=64)
     parser.add_argument('--dropout', type=float, default=0.0)

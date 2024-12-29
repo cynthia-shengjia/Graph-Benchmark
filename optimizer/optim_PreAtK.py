@@ -28,9 +28,9 @@ class TopKOptimizer(IROptimizer):
 
 
         self.optimizer_descent = torch.optim.Adam([
-            {'params': self.model.parameters(),         'lr': self.lr},
+            {'params': self.model.parameters(),         'lr': self.lr, "weight_decay": self.weight_decay},
             {'params': self.quantile, "lr": self.lr2}
-        ], weight_decay=self.weight_decay)
+        ])
 
 
 
